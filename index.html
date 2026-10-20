@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flashcards</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+  </style>
+</head>
+<body class="bg-white text-black min-h-screen flex flex-col justify-between p-4 sm:p-6 max-w-xl mx-auto border-x border-black">
+
+  <!-- Top Status & Actions -->
+  <header class="flex justify-between items-center text-sm border-b-2 border-black pb-3 gap-2">
+    <div id="counter" class="font-mono text-base font-bold shrink-0">1 / 40</div>
+    
+    <!-- Mode Switcher -->
+    <div class="flex items-center border border-black rounded p-0.5 font-mono text-xs">
+      <button id="modeNormal" class="px-2 py-0.5 bg-black text-white font-bold transition">通常 (漢字→読み)</button>
+      <button id="modeReverse" class="px-2 py-0.5 hover:bg-black hover:text-white transition">逆 (読み→漢字)</button>
+    </div>
+
+    <!-- Utilities -->
+    <div class="space-x-2 text-xs font-mono shrink-0">
+      <button id="shuffleBtn" class="underline hover:bg-black hover:text-white px-1 py-0.5 transition">SHUFFLE</button>
+      <button id="resetBtn" class="underline hover:bg-black hover:text-white px-1 py-0.5 transition">RESET</button>
+    </div>
+  </header>
+
+  <!-- Main Display Area -->
+  <main class="flex-grow flex flex-col justify-center items-center py-8 cursor-pointer text-center px-2" id="mainArea">
+    
+    <!-- Prompt Element (Front) -->
+    <div id="promptContainer" class="w-full space-y-3 mb-8">
+      <div id="promptMain" class="text-5xl sm:text-7xl font-bold tracking-tight">
+        賭け
+      </div>
+      <div id="promptSub" class="text-sm sm:text-base font-medium text-gray-700 max-w-md mx-auto hidden leading-relaxed">
+        <!-- Used in reverse mode to show meaning upfront -->
+      </div>
+    </div>
+
+    <!-- Divider Line (Only visible when revealed) -->
+    <div id="divider" class="w-16 h-0.5 bg-black my-4 invisible"></div>
+
+    <!-- Answer Element (Back / Revealed) -->
+    <div id="answerArea" class="invisible w-full space-y-2">
+      <div id="answerMain" class="text-3xl sm:text-4xl font-bold border-b-2 border-black pb-1 inline-block px-4">
+        かけ
+      </div>
+      <div id="answerSub" class="text-sm sm:text-base font-medium text-gray-800 max-w-md mx-auto pt-2 leading-relaxed">
+        金銭や品物をかけて勝負をすること
+      </div>
+    </div>
+
+    <!-- Hint / Toggle Prompt -->
+    <div id="hint" class="mt-12 text-[11px] font-mono tracking-widest text-gray-400">
+      [ SPACE / TAP TO TOGGLE ]
+    </div>
+
+  </main>
+
+  <!-- Bottom Navigation & Controls -->
+  <footer class="space-y-4 pt-4 border-t-2 border-black">
+    
+    <!-- Arrow Controls -->
+    <div class="grid grid-cols-2 gap-3">
+      <button id="prevBtn" class="py-4 border-2 border-black font-bold text-lg active:bg-black active:text-white transition flex justify-center items-center gap-2">
+        <span>←</span> <span>前へ</span>
+      </button>
+      <button id="nextBtn" class="py-4 border-2 border-black font-bold text-lg active:bg-black active:text-white transition flex justify-center items-center gap-2">
+        <span>次へ</span> <span>→</span>
+      </button>
+    </div>
+
+    <!-- Keyboard Shortcut Guidance -->
+    <div class="text-center text-[10px] font-mono text-gray-500">
+      KEYBOARD: ← (PREV) | → (NEXT) | SPACE / ↓ (TOGGLE)
+    </div>
+
+  </footer>
+
+  <script>
+    const dataset = [
+      { w: "賭け", r: "かけ", m: "金銭や品物をかけて勝負をすること" },
+      { w: "貢献", r: "こうけん", m: "社会や物事の役に立つこと" },
+      { w: "賜り物", r: "たまもの", m: "いただいたもの、成果や恵み" },
+      { w: "貞節", r: "ていせつ", m: "節操を守って操正しいこと" },
+      { w: "賠償", r: "ばいしょう", m: "損害を補償すること" },
+      { w: "国賓", r: "こくひん", m: "国の賓客として招く外国人" },
+      { w: "月賦", r: "げっぷ", m: "代金を毎月分割して支払うこと" },
+      { w: "賄賂", r: "わいろ", m: "不正な取り決めのために贈る金品" },
+      { w: "収賄", r: "しゅうわい", m: "賄賂を受け取ること" },
+      { w: "賄う", r: "まかない・まかなう", m: "費用や物資を繰り整える、食事を出す" },
+      { w: "誘拐", r: "ゆうかい", m: "たぶらかして連れ去ること" },
+      { w: "板挟み", r: "いたばさみ", m: "対立する二者の間で苦しむこと" },
+      { w: "拙速", r: "せっそく", m: "出来は悪くても仕事が早いこと" },
+      { w: "拙い", r: "つたない", m: "技術が未熟で下手であること" },
+      { w: "拓本", r: "たくほん", m: "石碑などの文字や模様を写し取ったもの" },
+      { w: "搭乗", r: "とうじょう", m: "飛行機や船などに乗り込むこと" },
+      { w: "抹消", r: "まっしょう", m: "消し去ること、取り消すこと" },
+      { w: "淫雨", r: "いんう", m: "長引く長雨" },
+      { w: "渓谷", r: "けいこく", m: "谷川に沿った深い谷" },
+      { w: "洪水", r: "こうずい", m: "大雨などで川の水が増水・溢れること" },
+      { w: "私淑", r: "ししゅく", m: "直接教えを受けずに心の中で師と仰ぐこと" },
+      { w: "津々浦々", r: "つつうらうら", m: "全国のあらゆる港や場所" },
+      { w: "漸減", r: "ぜんげん", m: "だんだんと減っていくこと" },
+      { w: "選択", r: "せんたく", m: "選び取ること" },
+      { w: "汎用", r: "はんよう", m: "広くいろいろな用途に用いること" },
+      { w: "梗概", r: "こうがい", m: "あらすじ、概略" },
+      { w: "鉄柵", r: "てっさく", m: "鉄で作られた柵" },
+      { w: "桟橋", r: "さんばし", m: "船を着けるために設けた構造物" },
+      { w: "脊椎", r: "せきつい", m: "背骨" },
+      { w: "詐称", r: "さしょう", m: "氏名や経歴などを偽って言うこと" },
+      { w: "訴訟", r: "そしょう", m: "裁判所に訴えて判決を求めること" },
+      { w: "詔書", r: "しょうしょ", m: "天皇のおことばを記した文書" },
+      { w: "委託", r: "いたく", m: "他人に仕事を任せること" },
+      { w: "許諾", r: "きょだく", m: "要求を聞き入れて許すこと" },
+      { w: "訃報", r: "ふほう", m: "死去の知らせ" },
+      { w: "諭旨", r: "ゆし", m: "趣旨を諭し告げること" },
+      { w: "民謡", r: "みんよう", m: "民間の歌、俗謡" },
+      { w: "胎内", r: "たいない", m: "母体のおなかの中" },
+      { w: "咽喉", r: "いんこう", m: "のど" },
+      { w: "リンパ腺", r: "りんぱせん", m: "リンパ節・リンパ組織" }
+    ];
+
+    let items = [...dataset];
+    let currentIndex = 0;
+    let isAnswerShown = false;
+    let isReverseMode = false; // false = Normal (Kanji -> Reading/Meaning), true = Reverse (Reading/Meaning -> Kanji)
+
+    // DOM Elements
+    const promptMain = document.getElementById("promptMain");
+    const promptSub = document.getElementById("promptSub");
+    const answerMain = document.getElementById("answerMain");
+    const answerSub = document.getElementById("answerSub");
+    const answerArea = document.getElementById("answerArea");
+    const divider = document.getElementById("divider");
+    const counterEl = document.getElementById("counter");
+    const mainArea = document.getElementById("mainArea");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const shuffleBtn = document.getElementById("shuffleBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const modeNormalBtn = document.getElementById("modeNormal");
+    const modeReverseBtn = document.getElementById("modeReverse");
+
+    function render() {
+      const current = items[currentIndex];
+      counterEl.textContent = `${currentIndex + 1} / ${items.length}`;
+      
+      if (!isReverseMode) {
+        // Normal Mode: Show Kanji -> Reveal Reading & Meaning
+        promptMain.textContent = current.w;
+        promptMain.className = "text-5xl sm:text-7xl font-bold tracking-tight";
+        promptSub.classList.add("hidden");
+
+        answerMain.textContent = current.r;
+        answerSub.textContent = current.m;
+        answerSub.classList.remove("hidden");
+      } else {
+        // Reverse Mode: Show Reading & Meaning -> Reveal Kanji
+        promptMain.textContent = current.r;
+        promptMain.className = "text-3xl sm:text-4xl font-bold tracking-tight";
+        promptSub.textContent = current.m;
+        promptSub.classList.remove("hidden");
+
+        answerMain.textContent = current.w;
+        answerMain.className = "text-5xl sm:text-6xl font-bold border-b-2 border-black pb-1 inline-block px-4";
+        answerSub.classList.add("hidden");
+      }
+
+      // Reset reveal state
+      isAnswerShown = false;
+      answerArea.classList.add("invisible");
+      divider.classList.add("invisible");
+    }
+
+    function toggleAnswer() {
+      isAnswerShown = !isAnswerShown;
+      if (isAnswerShown) {
+        answerArea.classList.remove("invisible");
+        divider.classList.remove("invisible");
+      } else {
+        answerArea.classList.add("invisible");
+        divider.classList.invisible();
+      }
+    }
+
+    function nextWord() {
+      currentIndex = (currentIndex + 1) % items.length;
+      render();
+    }
+
+    function prevWord() {
+      currentIndex = (currentIndex - 1 + items.length) % items.length;
+      render();
+    }
+
+    function shuffleItems() {
+      for (let i = items.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [items[i], items[j]] = [items[j], items[i]];
+      }
+      currentIndex = 0;
+      render();
+    }
+
+    function resetItems() {
+      items = [...dataset];
+      currentIndex = 0;
+      render();
+    }
+
+    function setMode(reverse) {
+      isReverseMode = reverse;
+      if (isReverseMode) {
+        modeReverseBtn.className = "px-2 py-0.5 bg-black text-white font-bold transition";
+        modeNormalBtn.className = "px-2 py-0.5 hover:bg-black hover:text-white transition";
+      } else {
+        modeNormalBtn.className = "px-2 py-0.5 bg-black text-white font-bold transition";
+        modeReverseBtn.className = "px-2 py-0.5 hover:bg-black hover:text-white transition";
+      }
+      render();
+    }
+
+    // Events
+    mainArea.addEventListener("click", toggleAnswer);
+    nextBtn.addEventListener("click", (e) => { e.stopPropagation(); nextWord(); });
+    prevBtn.addEventListener("click", (e) => { e.stopPropagation(); prevWord(); });
+    shuffleBtn.addEventListener("click", shuffleItems);
+    resetBtn.addEventListener("click", resetItems);
+    modeNormalBtn.addEventListener("click", () => setMode(false));
+    modeReverseBtn.addEventListener("click", () => setMode(true));
+
+    // Keyboard support
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight") {
+        nextWord();
+      } else if (e.key === "ArrowLeft") {
+        prevWord();
+      } else if (e.key === " " || e.key === "ArrowDown") {
+        e.preventDefault();
+        toggleAnswer();
+      }
+    });
+
+    // Initialize
+    render();
+  </script>
+</body>
+</html>
